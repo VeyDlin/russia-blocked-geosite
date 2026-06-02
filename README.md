@@ -113,7 +113,8 @@ Example: `https://raw.githubusercontent.com/VeyDlin/russia-blocked-geosite/relea
 
 ## Acknowledgements
 
+- [@runetfreedom/russia-blocked-geosite](https://github.com/runetfreedom/russia-blocked-geosite) — the original project this repository is based on
+- [@runetfreedom](https://github.com/runetfreedom) — for the build tooling and domain lists
 - [antifilter.download](https://antifilter.download/) — for blocked-domain data and a community to keep it updated
 - [re:filter](https://github.com/1andrevich/Re-filter-lists) — for filtered blocked-domain data
-- [@runetfreedom](https://github.com/runetfreedom) — for the original project and build tooling
-- [@Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat) — for the idea and the foundation of this project
+- [@Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat) — for the original idea behind the upstream project
