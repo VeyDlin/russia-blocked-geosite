@@ -87,20 +87,44 @@ All links below always point to the latest version. Three mirrors are available:
 
 Each category is published as a separate `.srs` rule-set file. Names match the categories with a `geosite-` prefix — for example, `geosite-ru-blocked.srs`, `geosite-google.srs`.
 
-- **Archive with all rules:** [sing-box.zip](https://raw.githubusercontent.com/VeyDlin/russia-blocked-geosite/release/sing-box.zip) · ["Russia only"](https://raw.githubusercontent.com/VeyDlin/russia-blocked-geosite/release/sing-box-ru-only.zip)
-- **Single rule** (using `ru-blocked` as an example):
-  - GitHub: `https://raw.githubusercontent.com/VeyDlin/russia-blocked-geosite/release/sing-box/geosite-ru-blocked.srs`
-  - jsDelivr: `https://cdn.jsdelivr.net/gh/VeyDlin/russia-blocked-geosite@release/sing-box/geosite-ru-blocked.srs`
+**A `remote` rule-set subscribes to the URL of a single `.srs` file** (using `ru-blocked` as an example):
 
-> To get another rule, replace `geosite-ru-blocked.srs` with the name of the category you need (see [Available categories](#available-categories)).
+- GitHub: `https://raw.githubusercontent.com/VeyDlin/russia-blocked-geosite/release/sing-box/geosite-ru-blocked.srs`
+- jsDelivr: `https://cdn.jsdelivr.net/gh/VeyDlin/russia-blocked-geosite@release/sing-box/geosite-ru-blocked.srs`
+
+```json
+{
+  "route": {
+    "rule_set": [
+      {
+        "type": "remote",
+        "tag": "ru-blocked",
+        "format": "binary",
+        "url": "https://cdn.jsdelivr.net/gh/VeyDlin/russia-blocked-geosite@release/sing-box/geosite-ru-blocked.srs",
+        "download_detour": "proxy"
+      }
+    ]
+  }
+}
+```
+
+> To use another rule, replace `geosite-ru-blocked.srs` with the name of the category you need (see [Available categories](#available-categories)).
+
+For local (offline) use, all rules are also packaged as an archive — download and reference each file as a `local` rule-set: [sing-box.zip](https://raw.githubusercontent.com/VeyDlin/russia-blocked-geosite/release/sing-box.zip) · ["Russia only"](https://raw.githubusercontent.com/VeyDlin/russia-blocked-geosite/release/sing-box-ru-only.zip)
 
 ### Plain-text domain lists
 
 The [`release`](https://github.com/VeyDlin/russia-blocked-geosite/tree/release) branch holds raw domain lists (`.txt`, one domain per line):
 
-`ru-blocked` · `ru-blocked-all` · `antifilter-download` · `antifilter-download-community` · `refilter` · `category-ads-all` · `google` · `youtube` · `discord` · `private` · `win-spy` · `win-update` · `win-extra`
+The same curated set is available both as sing-box `.srs` rule-sets and as plain `.txt` lists:
+
+- **Blocked / RU:** `ru-blocked` · `ru-blocked-all` · `ru-available-only-inside` · `antifilter-download` · `antifilter-download-community` · `refilter`
+- **Ads & Windows:** `category-ads-all` · `win-spy` · `win-update` · `win-extra`
+- **Popular services:** `google` · `youtube` · `discord` · `twitter` · `meta` · `openai` · `telegram` · `twitch` · `github` · `cloudflare` · `netflix` · `spotify` · `tiktok` · `reddit` · `signal` · `steam` · `apple` · `microsoft` · `amazon`
 
 Example: `https://raw.githubusercontent.com/VeyDlin/russia-blocked-geosite/release/ru-blocked.txt`
+
+> Need a category that isn't in this set? It's still inside `geosite.dat` — all ~1800 v2fly categories ship there.
 
 
 ## Related projects

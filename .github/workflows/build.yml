@@ -31,6 +31,14 @@ jobs:
           
           echo "GFW=https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/refs/heads/release/gfw.txt" >> $GITHUB_ENV
           echo "GREATFIRE=https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/refs/heads/release/greatfire.txt" >> $GITHUB_ENV
+
+          # Curated category set published as sing-box .srs (all of these) and as plain .txt.
+          # Popular v2fly services + project/RU categories. geosite.dat still contains every category.
+          POPULAR="google youtube discord twitter meta openai telegram twitch github cloudflare netflix spotify tiktok reddit signal steam apple microsoft amazon"
+          # Lists exported as plain .txt by domain-list-custom (aggregations/categories it must resolve).
+          echo "EXPORT_CATEGORIES=ru-blocked ru-blocked-all ru-available-only-inside category-ads-all $POPULAR" >> $GITHUB_ENV
+          # Full .srs whitelist = the above + lists fetched directly (antifilter/refilter/win-*).
+          echo "SRS_CATEGORIES=ru-blocked ru-blocked-all ru-available-only-inside category-ads-all antifilter-download antifilter-download-community refilter win-spy win-update win-extra $POPULAR" >> $GITHUB_ENV
         shell: bash
 
       - name: Checkout runetfreedom/russia-domains-list
@@ -107,14 +115,14 @@ jobs:
         run: |
           cd custom || exit 1
           go run ./ --exportlists=  --datname=geosite-ru-only.dat --togfwlist=ru-blocked --datapath=../community/data-ru
-          go run ./ --exportlists=category-ads-all,google,youtube,discord,ru-blocked,ru-blocked-all,private --datapath=../community/data
+          go run ./ --exportlists="${EXPORT_CATEGORIES// /,}" --datapath=../community/data
 
       - name: Move and zip files and generate sha256 hash
         run: |
           install -Dp ./custom/publish/geosite-ru-only.dat ./publish/geosite-ru-only.dat
           install -Dp ./custom/publish/geosite.dat ./publish/geosite.dat
           install -p {antifilter-download,antifilter-download-community,refilter,win-spy,win-update,win-extra}.txt ./publish/
-          install -p ./custom/publish/{ru-blocked,ru-blocked-all,discord,youtube,google,private,category-ads-all}.txt ./publish/
+          for c in $EXPORT_CATEGORIES; do install -p "./custom/publish/$c.txt" ./publish/; done
           
           (cd ./publish && sha256sum geosite.dat > geosite.dat.sha256sum)
 
@@ -123,8 +131,10 @@ jobs:
           cd geodat2srs || exit 1
           go build -o geodat2srs .
           cd ..
-          mkdir -p ./publish/sing-box ./publish/sing-box-ru-only
-          ./geodat2srs/geodat2srs geosite -i ./publish/geosite.dat         -o ./publish/sing-box         --prefix geosite-
+          mkdir -p ./tmp-srs ./publish/sing-box ./publish/sing-box-ru-only
+          # geodat2srs converts every category; keep only the curated whitelist.
+          ./geodat2srs/geodat2srs geosite -i ./publish/geosite.dat -o ./tmp-srs --prefix geosite-
+          for c in $SRS_CATEGORIES; do cp "./tmp-srs/geosite-$c.srs" ./publish/sing-box/; done
           ./geodat2srs/geodat2srs geosite -i ./publish/geosite-ru-only.dat -o ./publish/sing-box-ru-only --prefix geosite-
           (cd ./publish/sing-box         && zip -r ../sing-box.zip .)
           (cd ./publish/sing-box-ru-only && zip -r ../sing-box-ru-only.zip .)
