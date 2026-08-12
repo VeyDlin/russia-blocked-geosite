@@ -27,8 +27,13 @@ jobs:
           echo "WIN_SPY=https://raw.githubusercontent.com/crazy-max/WindowsSpyBlocker/master/data/hosts/spy.txt" >> $GITHUB_ENV
           echo "WIN_UPDATE=https://raw.githubusercontent.com/crazy-max/WindowsSpyBlocker/master/data/hosts/update.txt" >> $GITHUB_ENV
           echo "WIN_EXTRA=https://raw.githubusercontent.com/crazy-max/WindowsSpyBlocker/master/data/hosts/extra.txt" >> $GITHUB_ENV
-          
-          
+
+          # Telegram IP ranges: official published list plus the prefixes their ASNs announce.
+          echo "TELEGRAM_CIDR=https://core.telegram.org/resources/cidr.txt" >> $GITHUB_ENV
+          echo "TELEGRAM_ASN=62041 62014 59930 44907 211157" >> $GITHUB_ENV
+          echo "SING_BOX_VERSION=1.13.18" >> $GITHUB_ENV
+
+
           echo "GFW=https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/refs/heads/release/gfw.txt" >> $GITHUB_ENV
           echo "GREATFIRE=https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/refs/heads/release/greatfire.txt" >> $GITHUB_ENV
 
@@ -39,6 +44,8 @@ jobs:
           echo "EXPORT_CATEGORIES=ru-blocked ru-blocked-all ru-available-only-inside category-ads-all $POPULAR" >> $GITHUB_ENV
           # Full .srs whitelist = the above + lists fetched directly (antifilter/refilter/win-*).
           echo "SRS_CATEGORIES=ru-blocked ru-blocked-all ru-available-only-inside category-ads-all antifilter-download antifilter-download-community refilter win-spy win-update win-extra $POPULAR" >> $GITHUB_ENV
+          # Categories additionally published as *-full.srs: domain rules plus Telegram IP ranges.
+          echo "FULL_CATEGORIES=telegram ru-blocked ru-blocked-all" >> $GITHUB_ENV
         shell: bash
 
       - name: Checkout runetfreedom/russia-domains-list
@@ -100,16 +107,18 @@ jobs:
         run: |
           echo "include:antifilter-download-community" > ./community/data/ru-blocked
           echo "include:refilter" >> ./community/data/ru-blocked
-          
+          echo "include:telegram" >> ./community/data/ru-blocked
+
           echo "include:antifilter-download" > ./community/data/ru-blocked-all
           echo "include:antifilter-download-community" >> ./community/data/ru-blocked-all
-          echo "include:refilter" >> ./community/data/ru-blocked-all          
+          echo "include:refilter" >> ./community/data/ru-blocked-all
+          echo "include:telegram" >> ./community/data/ru-blocked-all
 
       - name: Build Ru only list
         run: |
           mkdir -p ./community/data-ru
           cp ./community/data/{category-ads-all,private,ru-available-only-inside,category-gov-ru} ./community/data-ru/
-          cat ./community/data/antifilter-download-community ./community/data/refilter | sort --ignore-case -u > ./community/data-ru/ru-blocked
+          cat ./community/data/{antifilter-download-community,refilter,telegram} | sort --ignore-case -u > ./community/data-ru/ru-blocked
           
       - name: Build geosite.dat file
         run: |
@@ -136,6 +145,42 @@ jobs:
           ./geodat2srs/geodat2srs geosite -i ./publish/geosite.dat -o ./tmp-srs --prefix geosite-
           for c in $SRS_CATEGORIES; do cp "./tmp-srs/geosite-$c.srs" ./publish/sing-box/; done
           ./geodat2srs/geodat2srs geosite -i ./publish/geosite-ru-only.dat -o ./publish/sing-box-ru-only --prefix geosite-
+
+      - name: Install sing-box CLI
+        run: |
+          curl -sSL "https://github.com/SagerNet/sing-box/releases/download/v${SING_BOX_VERSION}/sing-box-${SING_BOX_VERSION}-linux-amd64.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin --strip-components=1 "sing-box-${SING_BOX_VERSION}-linux-amd64/sing-box"
+          sing-box version
+
+      - name: Build Telegram IP list
+        run: |
+          curl -sSL "$TELEGRAM_CIDR" > ./telegram-ip.txt
+          # ASN prefixes only add to the official list, so a RIPEstat outage must not fail the build.
+          for asn in $TELEGRAM_ASN; do
+            curl -sSL --max-time 30 "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS$asn" \
+              | jq -r '.data.prefixes[]?.prefix // empty' >> ./telegram-ip.txt || true
+          done
+          grep -E '^[0-9a-fA-F:.]+/[0-9]{1,3}$' ./telegram-ip.txt | sort -u > ./publish/geoip-telegram.txt
+          echo "Telegram prefixes: $(wc -l < ./publish/geoip-telegram.txt)"
+
+      - name: Build Telegram GeoIP and combined rule-sets
+        run: |
+          # Rule-set format version 1 keeps the output readable by sing-box 1.8+,
+          # matching what geodat2srs emits (it is built against the sing-box 1.9 library).
+          jq -R -s '{ip_cidr: (split("\n") | map(select(length > 0)))}' ./publish/geoip-telegram.txt > ./tmp-srs/ip-rule.json
+          jq '{version: 1, rules: [.]}' ./tmp-srs/ip-rule.json > ./tmp-srs/geoip-telegram.json
+          sing-box rule-set compile -o ./publish/sing-box/geoip-telegram.srs ./tmp-srs/geoip-telegram.json
+          # Combined sets: the domain rules geodat2srs produced plus one extra ip_cidr rule.
+          # Rules inside a rule-set are ORed, so the IP rule must be a separate array entry.
+          for c in $FULL_CATEGORIES; do
+            sing-box rule-set decompile -o "./tmp-srs/$c-domains.json" "./publish/sing-box/geosite-$c.srs"
+            jq -s '{version: 1, rules: (.[0].rules + [.[1]])}' \
+              "./tmp-srs/$c-domains.json" ./tmp-srs/ip-rule.json > "./tmp-srs/$c-full.json"
+            sing-box rule-set compile -o "./publish/sing-box/$c-full.srs" "./tmp-srs/$c-full.json"
+          done
+
+      - name: Package sing-box rule-sets
+        run: |
           (cd ./publish/sing-box         && zip -r ../sing-box.zip .)
           (cd ./publish/sing-box-ru-only && zip -r ../sing-box-ru-only.zip .)
 

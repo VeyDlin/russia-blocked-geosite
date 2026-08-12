@@ -8,6 +8,7 @@ The build runs automatically **every 6 hours**, so the links in the [Download](#
 
 - [Data sources](#data-sources)
 - [File formats](#file-formats)
+  - [Domains are not enough for Telegram](#domains-are-not-enough-for-telegram)
 - [Available categories](#available-categories)
 - [Download](#download)
   - [GeoSite `.dat` — v2ray / xray / mihomo](#geosite-dat--v2ray--xray--mihomo)
@@ -36,6 +37,13 @@ The build runs automatically **every 6 hours**, so the links in the [Download](#
 | [Peter Lowe's list](https://pgl.yoyo.org/adservers/serverlist.php) | Advertising domains |
 | [WindowsSpyBlocker](https://github.com/crazy-max/WindowsSpyBlocker) | Windows domains (telemetry, updates, and more) |
 
+**IP ranges:**
+
+| Source | Description |
+| --- | --- |
+| [core.telegram.org/resources/cidr.txt](https://core.telegram.org/resources/cidr.txt) | Telegram IP ranges, published by Telegram itself |
+| [RIPEstat](https://stat.ripe.net/) | Prefixes announced by Telegram's own networks — AS62041, AS62014, AS59930, AS44907, AS211157 |
+
 Domains from [@runetfreedom/russia-domains-list](https://github.com/runetfreedom/russia-domains-list) are also included in the build.
 **If you want to suggest new domains or categories, do it there.**
 
@@ -52,6 +60,19 @@ The same set of categories is published in three formats — pick the one that f
 
 A trimmed **"Russia only"** variant is also published (`geosite-ru-only.dat` and the `sing-box-ru-only/` directory) — it contains only the blocked-domain list, without foreign categories.
 
+### Domains are not enough for Telegram
+
+Domain rules only match traffic that resolves a name first. The Telegram client, once connected, talks to its MTProto datacenters by IP, so a domain-only rule-set silently misses most of the session. The build therefore also publishes IP rules:
+
+| File | Contents |
+| --- | --- |
+| `geoip-telegram.srs` | Telegram IP ranges only |
+| `telegram-full.srs` | Telegram domains **and** IP ranges in one rule-set |
+| `ru-blocked-full.srs` | `ru-blocked` domains **and** Telegram IP ranges |
+| `ru-blocked-all-full.srs` | `ru-blocked-all` domains **and** Telegram IP ranges |
+
+> IP ranges exist in the sing-box files only. The v2ray `geosite.dat` format stores domains and nothing else, so `geosite.dat` cannot carry them — for v2ray / xray / mihomo, pair a category with a separate geoip source.
+
 
 ## Available categories
 
@@ -59,10 +80,10 @@ A trimmed **"Russia only"** variant is also published (`geosite-ru-only.dat` and
 
 | Category | Description |
 | --- | --- |
-| `geosite:ru-blocked` | Domains blocked in Russia (`antifilter-download-community` + `re:filter`) |
-| `geosite:ru-blocked-all` | **All known** blocked domains (`antifilter-download` + `antifilter-download-community` + `re:filter`). At least 700k domains — **use with caution** |
+| `geosite:ru-blocked` | Domains blocked in Russia (`antifilter-download-community` + `re:filter` + `telegram`) |
+| `geosite:ru-blocked-all` | **All known** blocked domains (`antifilter-download` + `antifilter-download-community` + `re:filter` + `telegram`). Around 1.5M domains — **use with caution** |
 | `geosite:ru-available-only-inside` | Domains available only from inside Russia |
-| `geosite:antifilter-download` | All domains from `antifilter.download` (nearly 700k — **use with caution**) |
+| `geosite:antifilter-download` | All domains from `antifilter.download` (around 1.5M — **use with caution**) |
 | `geosite:antifilter-download-community` | All domains from `community.antifilter.download` |
 | `geosite:refilter` | All domains from `re:filter` |
 | `geosite:category-ads-all` | All advertising domains |
@@ -87,10 +108,10 @@ All links below always point to the latest version. Three mirrors are available:
 
 Each category is published as a separate `.srs` rule-set file. Names match the categories with a `geosite-` prefix — for example, `geosite-ru-blocked.srs`, `geosite-google.srs`.
 
-**A `remote` rule-set subscribes to the URL of a single `.srs` file** (using `ru-blocked` as an example):
+**A `remote` rule-set subscribes to the URL of a single `.srs` file** (using `ru-blocked-all` as an example):
 
-- GitHub: `https://raw.githubusercontent.com/VeyDlin/russia-blocked-geosite/release/sing-box/geosite-ru-blocked.srs`
-- jsDelivr: `https://cdn.jsdelivr.net/gh/VeyDlin/russia-blocked-geosite@release/sing-box/geosite-ru-blocked.srs`
+- GitHub: `https://raw.githubusercontent.com/VeyDlin/russia-blocked-geosite/release/sing-box/geosite-ru-blocked-all.srs`
+- jsDelivr: `https://cdn.jsdelivr.net/gh/VeyDlin/russia-blocked-geosite@release/sing-box/geosite-ru-blocked-all.srs`
 
 ```json
 {
@@ -98,9 +119,9 @@ Each category is published as a separate `.srs` rule-set file. Names match the c
     "rule_set": [
       {
         "type": "remote",
-        "tag": "ru-blocked",
+        "tag": "ru-blocked-all",
         "format": "binary",
-        "url": "https://cdn.jsdelivr.net/gh/VeyDlin/russia-blocked-geosite@release/sing-box/geosite-ru-blocked.srs",
+        "url": "https://cdn.jsdelivr.net/gh/VeyDlin/russia-blocked-geosite@release/sing-box/geosite-ru-blocked-all.srs",
         "download_detour": "proxy"
       }
     ]
@@ -108,7 +129,25 @@ Each category is published as a separate `.srs` rule-set file. Names match the c
 }
 ```
 
-> To use another rule, replace `geosite-ru-blocked.srs` with the name of the category you need (see [Available categories](#available-categories)).
+> To use another rule, replace `geosite-ru-blocked-all.srs` with the name of the category you need (see [Available categories](#available-categories)).
+
+#### Rule-sets that include Telegram IP ranges
+
+Four more files live in the same directory and are referenced exactly the same way — only the file name changes: `geoip-telegram.srs`, `telegram-full.srs`, `ru-blocked-full.srs`, `ru-blocked-all-full.srs` (see [Domains are not enough for Telegram](#domains-are-not-enough-for-telegram)).
+
+To route Telegram fully, either take the combined file on its own:
+
+```json
+{
+  "type": "remote",
+  "tag": "telegram-full",
+  "format": "binary",
+  "url": "https://cdn.jsdelivr.net/gh/VeyDlin/russia-blocked-geosite@release/sing-box/telegram-full.srs",
+  "download_detour": "proxy"
+}
+```
+
+…or keep domains and addresses apart and list both `geosite-telegram.srs` and `geoip-telegram.srs` in the same routing rule.
 
 For local (offline) use, all rules are also packaged as an archive — download and reference each file as a `local` rule-set: [sing-box.zip](https://raw.githubusercontent.com/VeyDlin/russia-blocked-geosite/release/sing-box.zip) · ["Russia only"](https://raw.githubusercontent.com/VeyDlin/russia-blocked-geosite/release/sing-box-ru-only.zip)
 
@@ -123,6 +162,8 @@ The same curated set is available both as sing-box `.srs` rule-sets and as plain
 - **Popular services:** `google` · `youtube` · `discord` · `twitter` · `meta` · `openai` · `telegram` · `twitch` · `github` · `cloudflare` · `netflix` · `spotify` · `tiktok` · `reddit` · `signal` · `steam` · `apple` · `microsoft` · `amazon`
 
 Example: `https://raw.githubusercontent.com/VeyDlin/russia-blocked-geosite/release/ru-blocked.txt`
+
+Telegram's IP ranges ship as a text file too — `geoip-telegram.txt`, one CIDR prefix per line.
 
 > Need a category that isn't in this set? It's still inside `geosite.dat` — all ~1800 v2fly categories ship there.
 
