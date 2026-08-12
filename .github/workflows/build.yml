@@ -89,7 +89,16 @@ jobs:
           
           curl -sSL $GFW > ./community/data/gfw.txt
           curl -sSL $GREATFIRE > ./community/data/greatfire.txt
-          
+
+          # Upstream lists occasionally ship an entry with whitespace inside it, which
+          # domain-list-custom parses as a domain attribute and rejects, failing the whole build.
+          # Only fetched lists are cleaned: v2fly data files use "domain @attribute" legitimately.
+          for f in ./{antifilter-download,antifilter-download-community,refilter,win-spy,win-update,win-extra}.txt ./community/data/{gfw,greatfire}.txt; do
+            tr -d '\r' < "$f" | grep -E '^[^[:space:]]+$' > "$f.clean"
+            echo "$f: $(wc -l < "$f") -> $(wc -l < "$f.clean")"
+            mv "$f.clean" "$f"
+          done
+
           cp {antifilter-download,antifilter-download-community,refilter,win-spy,win-update,win-extra}.txt ./community/data/
           for f in ./community/data/*.txt; do mv "$f" "${f//.txt/}"; done
           
